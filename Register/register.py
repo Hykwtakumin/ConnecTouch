@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 #
-# リーダとカードのIDを表示
+# NFCを認識したら登録画面を開く
+#
+# pip install nfcpy
 #
 
 import nfc
 import binascii
-from datetime import datetime
-from uuid import getnode as get_mac
+import requests
+import os
 import commands
 
 def startup(targets):
@@ -14,11 +16,12 @@ def startup(targets):
     return targets
 
 def connected(tag):
-    readerId = commands.getoutput("ip a show wlan0 | grep 'inet ' | cut -f6 -d ' '") # リーダに接続されたマシンのIPアドレス
+    print('connected')
     nfcId = binascii.hexlify(tag.identifier)
+    print(nfcId)
     
-    date = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    print("|%s| readerId: %s nfcId: %s" % (date, readerId, nfcId))
+    commands.getoutput("open http://192.168.0.200/register.html\?id={0}".format(nfcId))
+
     return id
     
 def released(tag):
