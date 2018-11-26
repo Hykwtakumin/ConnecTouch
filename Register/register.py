@@ -2,7 +2,9 @@
 #
 # NFCを認識したら登録画面を開く
 #
-# pip install nfcpy
+# brew install libusb
+# sudo pip install nfcpy
+# sudo pip install requests
 #
 
 import nfc
@@ -20,7 +22,7 @@ def connected(tag):
     nfcId = binascii.hexlify(tag.identifier)
     print(nfcId)
     
-    commands.getoutput("open http://192.168.0.200/register.html\?id={0}".format(nfcId))
+    commands.getoutput("open http://192.168.0.200/register?id={0}".format(nfcId))
 
     return id
     

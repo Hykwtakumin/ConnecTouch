@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # -*- ruby -*-
 #
-# ConnecTouch
+# ConnecTouchサーバ
 #
 # % mongo
 # > use connectouch
@@ -12,22 +12,33 @@ require 'sinatra'
 require 'mongo'
 require 'json'
 
-# いろいろMongoの仕様が変わった?
-# connection = Mongo::Connection.new('localhost', 27017)
-# db = connection.db('connectouch')
+require 'mail'
 
 client = Mongo::Client.new('mongodb://localhost:27017/connectouch')
 db = client.database
 
 get '/read/:id' do |id|
-  data = db['node'].find(:id => id)
+  data = db['info'].find(:id => id)
   data.to_a.to_json
 end
 
 get '/read' do
   id = params[:id]
-  data = db['node'].find(:id => id)
+  data = db['info'].find(:id => id)
   data.to_a.to_json
+end
+
+get '/delete/:id' do |id|
+  db['info'].delete_many(:id => id)
+  ''
+end
+
+get '/delete' do
+  id = params[:id]
+  if id
+    db['info'].delete_many(:id => id)
+  end
+  ''
 end
 
 get '/write/:id' do |id| # /write/abc?url=xyz, etc.
@@ -35,10 +46,10 @@ get '/write/:id' do |id| # /write/abc?url=xyz, etc.
   data.delete('splat')
   data.delete('captures')
   if data != {} then
-    db['node'].delete_many(:id => id) # remove all items with id
-    db['node'].insert_one(data)
+    db['info'].delete_many(:id => id) # remove all items with id
+    db['info'].insert_one(data)
   end
-  data.to_json
+  data.to_a.to_json
 end
 
 get '/write' do # /write?id=abc&url=xyz, etc.
@@ -46,14 +57,14 @@ get '/write' do # /write?id=abc&url=xyz, etc.
   data.delete('splat')
   data.delete('captures')
   if data['id'] then
-    db['node'].delete_many(:id => data['id']) # remove all items with id
-    db['node'].insert_one(data)
+    db['info'].delete_many(:id => data['id']) # remove all items with id
+    db['info'].insert_one(data)
   end
-  data.to_json
+  data.to_a.to_json
 end
 
-get '/nodes' do
-  db['node'].find().to_a.to_json
+get '/info' do
+  db['info'].find().to_a.to_json
 end
 
 get '/addlink/:id1/:id2' do |id1,id2|
@@ -109,14 +120,18 @@ end
 
 get '/register' do
   @id = params['id'].to_s
+  @desc = params['desc'].to_s
   @email = params['email'].to_s
   @keywords = params['keywords'].to_s.split(/\s*,\s*/)
   @secrets = params['secrets'].to_s.split(/\s*,\s*/)
+  @register = params['register']
 
-  if @email == '' && @keywords.length == 0 && @secrets.length == 0
+  # if @desc == '' && @email == '' && @keywords.length == 0 && @secrets.length == 0
+  unless @register
     data = db['info'].find(:id => @id).first
     if data
       p data
+      @desc = data['desc']
       @email = data['email']
       @keywords = data['keywords']
       @secrets = data['secrets']
@@ -129,6 +144,7 @@ get '/register' do
   
   data = {
     id: @id,
+    desc: @desc,
     email: @email,
     keywords: @keywords,
     secrets: @secrets
@@ -138,6 +154,45 @@ get '/register' do
   erb :register
 end
 
+def sendmail(to,subject,body)
+  mail = Mail.new do
+    from     'connectouch.jre@gmail.com'
+    to       to
+    subject  subject
+    body     body
+  end
+
+  options = {
+    :address               => 'smtp.gmail.com',
+    :port                  => 587,
+    :domain                => 'gmail.com',
+    :user_name             => 'connectouch.jre',
+    :password              => 'rwgdvflajrjqqmrr', # GMailの「アプリパスワード」
+    :authentication        => :plain,
+    :enable_starttls_auto  => true
+  }
+
+  mail.charset = 'utf-8'
+  mail.delivery_method(:smtp, options)
+  mail.deliver
+end
+
+get '/mail' do
+  to = params['to'].to_s
+  subject = params['subject'].to_s
+  body = params['body'].to_s
+  sendmail(to,subject,body)
+  ''
+end
+  
+post '/mail' do
+  to = params['to'].to_s
+  subject = params['subject'].to_s
+  body = params['body'].to_s
+  sendmail(to,subject,body)
+  ''
+end
+  
 error do
   "Error!"
 end
